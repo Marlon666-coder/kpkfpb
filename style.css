@@ -74,8 +74,15 @@ button:disabled { cursor: not-allowed; }
   padding: 2px 12px; border-radius: 999px; font-weight: 700; white-space: nowrap;
 }
 .icon-btn {
+  position: relative; flex-shrink: 0;
   border: none; background: #f1efff; font-size: 22px;
   width: 44px; height: 44px; border-radius: 50%;
+}
+/* Tombol musik saat dimatikan: redup + garis coret */
+.icon-btn.off { opacity: .5; }
+.icon-btn.off::after {
+  content: ""; position: absolute; left: 9px; right: 9px; top: 50%; height: 3px;
+  background: #ff6b6b; border-radius: 2px; transform: rotate(-45deg);
 }
 body[data-screen="game"] .home-btn,
 body[data-screen="tutorial"] .home-btn { visibility: hidden; }
@@ -399,6 +406,10 @@ body[data-screen="tutorial"] .home-btn { visibility: hidden; }
 @media (max-width: 600px) {
   body { font-size: 16px; }
   #tb-name { display: none; }
+  #topbar { gap: 6px; padding: 8px 10px; }
+  .icon-btn { width: 40px; height: 40px; font-size: 20px; }
+  .icon-btn.off::after { left: 8px; right: 8px; }
+  .pill { padding: 2px 8px; }
   .hero-main { font-size: 76px; }
   .btn-big { min-width: 0; width: 100%; max-width: 340px; }
   .level-btn { width: 76px; height: 76px; font-size: 1.5rem; }

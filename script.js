@@ -1,6 +1,7 @@
 "use strict";
 /* =========================================================
    PETUALANGAN FPB & KPK — script.js
+   (Lagu latar ada di file terpisah: music.js)
 
    Daftar isi:
    1.  Pengaturan (CONFIG, karakter, hewan)
@@ -34,6 +35,9 @@ const CONFIG = {
   soundFiles: {
     // click: "", correct: "", wrong: "", hop: "", win: ""
   },
+  // Lagu latar (nama lagu dari SONGS di music.js).
+  // Lagu tiap dunia diatur di WORLDS[].music di bawah.
+  music: { home: "tema", tutorial: "belajar" },
 };
 
 // Karakter pemain yang bisa dipilih di Home
@@ -80,11 +84,11 @@ const FRIENDS = ["🧒", "👧", "👦", "🧑", "👱", "🧒🏽"];
    Opsional: `choices: [..]` untuk menentukan pilihan jawaban sendiri.
    ========================================================= */
 const WORLDS = [
-  { id: 1, name: "Desa Faktor",       icon: "🌱", color: "#b8f0c6", desc: "Belajar berbagi rata" },
-  { id: 2, name: "Kota Kelipatan",    icon: "🌈", color: "#ffd1e6", desc: "Melompat bersama hewan" },
-  { id: 3, name: "Istana FPB",        icon: "🏰", color: "#ffe0b8", desc: "Keranjang paling banyak" },
-  { id: 4, name: "Planet KPK",        icon: "🚀", color: "#d9d2ff", desc: "Kapan mereka bertemu?" },
-  { id: 5, name: "Tantangan Master",  icon: "🏆", color: "#fff1a8", desc: "Campuran FPB & KPK" },
+  { id: 1, name: "Desa Faktor",       icon: "🌱", color: "#b8f0c6", music: "desa",   desc: "Belajar berbagi rata" },
+  { id: 2, name: "Kota Kelipatan",    icon: "🌈", color: "#ffd1e6", music: "kota",   desc: "Melompat bersama hewan" },
+  { id: 3, name: "Istana FPB",        icon: "🏰", color: "#ffe0b8", music: "istana", desc: "Keranjang paling banyak" },
+  { id: 4, name: "Planet KPK",        icon: "🚀", color: "#d9d2ff", music: "planet", desc: "Kapan mereka bertemu?" },
+  { id: 5, name: "Tantangan Master",  icon: "🏆", color: "#fff1a8", music: "master", desc: "Campuran FPB & KPK" },
 ];
 
 const LEVELS = [
@@ -307,7 +311,8 @@ function defaultSave() {
     tutorials: { fpb: false, kpk: false },
     flags: { noHintLevel: false },
     avatar: "rani",
-    sound: true,
+    sound: true,                 // efek suara 🔊
+    music: true,                 // lagu latar 🎵
   };
 }
 function loadSave() {
@@ -340,7 +345,8 @@ function avatar() {
 
 
 /* =========================================================
-   6. SUARA (dibuat dengan Web Audio, tanpa file)
+   6. EFEK SUARA (dibuat dengan Web Audio, tanpa file)
+   Lagu latar ada di music.js.
    ========================================================= */
 const SOUND_NOTES = {
   click:   [[660, 0.05]],
@@ -350,23 +356,27 @@ const SOUND_NOTES = {
   coin:    [[988, 0.06], [1319, 0.12]],
   win:     [[523, 0.12], [659, 0.12], [784, 0.12], [1047, 0.32]],
 };
+// Efek suara penting: musik latar dipelankan sebentar agar terdengar jelas
+const DUCK_SOUNDS = ["correct", "wrong", "win"];
+
 const Sound = {
-  ctx: null,
   play(type) {
     if (!save.sound) return;
+    if (DUCK_SOUNDS.includes(type)) Music.duck();
     const file = CONFIG.soundFiles[type];
     if (file) { new Audio(file).play().catch(() => {}); return; }
     try {
-      this.ctx = this.ctx || new (window.AudioContext || window.webkitAudioContext)();
-      let t = this.ctx.currentTime;
+      const ctx = getAudioContext();      // dari music.js (dipakai bersama)
+      if (!ctx) return;
+      let t = ctx.currentTime;
       (SOUND_NOTES[type] || []).forEach(([freq, dur]) => {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         osc.type = "triangle";
         osc.frequency.value = freq;
         gain.gain.setValueAtTime(0.18, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-        osc.connect(gain).connect(this.ctx.destination);
+        osc.connect(gain).connect(ctx.destination);
         osc.start(t);
         osc.stop(t + dur + 0.02);
         t += dur;
@@ -443,6 +453,7 @@ function updateTopbar() {
   $("#tb-coins").textContent = save.coins;
   $("#tb-stars").textContent = totalStars();
   $("#btn-sound").textContent = save.sound ? "🔊" : "🔇";
+  $("#btn-music").classList.toggle("off", !save.music);
 }
 
 
@@ -455,6 +466,17 @@ function showScreen(id) {
   document.body.dataset.screen = id;
   window.scrollTo(0, 0);
   updateTopbar();
+  Music.play(musicFor(id));
+}
+
+/** Lagu untuk setiap layar: tutorial, dunia yang sedang dimainkan, atau tema utama. */
+function musicFor(screen) {
+  if (screen === "tutorial") return CONFIG.music.tutorial;
+  if ((screen === "game" || screen === "result") && run) {
+    const world = WORLDS.find(w => w.id === run.level.world);
+    if (world && world.music) return world.music;
+  }
+  return CONFIG.music.home;
 }
 const SCREEN_RENDER = {
   home: renderHome,
@@ -588,7 +610,7 @@ function renderProgress() {
       { label: "Tidak jadi", cls: "btn-light" },
       {
         label: "Ya, ulang", cls: "btn-danger", onClick: () => {
-          const keep = { avatar: save.avatar, sound: save.sound };
+          const keep = { avatar: save.avatar, sound: save.sound, music: save.music };
           save = { ...defaultSave(), ...keep };
           saveGame(); renderProgress(); updateTopbar();
         },
@@ -1488,6 +1510,18 @@ function init() {
   $("#btn-sound").onclick = () => {
     save.sound = !save.sound;
     saveGame(); updateTopbar(); Sound.play("click");
+  };
+
+  // Musik: browser baru mengizinkan suara setelah layar disentuh pertama kali.
+  // "true" = jalan paling awal, sebelum tombol lain bereaksi.
+  Music.enabled = save.music;
+  ["click", "touchend", "keydown"].forEach(ev =>
+    document.addEventListener(ev, () => Music.unlock(), true));
+  $("#btn-music").onclick = () => {
+    save.music = !save.music;
+    saveGame(); updateTopbar();
+    Music.setEnabled(save.music);
+    Sound.play("click");
   };
   $("#btn-hint").onclick = showHint;
 
